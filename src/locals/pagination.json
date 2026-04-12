@@ -1,0 +1,6 @@
+{
+  "page_must_be_at_least_1": "Page must be at least 1.",
+  "limit_must_be_between_1_and_150": "Limit must be between 1 and 150.",
+  "page_cannot_be_combined_with_cursor": "Use either page or cursor, not both.",
+  "invalid_cursor_token_for_sort_mode": "Invalid cursor token for the selected sort mode."
+}

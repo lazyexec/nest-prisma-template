@@ -58,3 +58,4 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 /prisma/generated
 # Don't judge me, but i really keep it clean in development!
 /prisma/migrations
+/docs
