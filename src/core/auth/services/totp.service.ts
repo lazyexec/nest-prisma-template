@@ -5,9 +5,10 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { authenticator } from 'otplib';
+import { generateSecret, generateURI, verifySync } from 'otplib';
 import { toDataURL } from 'qrcode';
-import { TwoFactorMethodType, type User } from '@prisma-client';
+import type { User } from '@prisma-client';
+import { TwoFactorMethodType } from '@prisma-client';
 import { Config } from '@/configs/environment.config';
 import { CryptoService } from '@/common/crypto/crypto.service';
 import { TwoFactorRepository } from '@/core/auth/repositories/two-factor.repository';
@@ -25,14 +26,11 @@ export class TotpService {
     private readonly config: ConfigService<Config>,
     private readonly crypto: CryptoService,
     private readonly twoFactor: TwoFactorRepository,
-  ) {
-    const totp = this.config.get<Config['totp']>('totp')!;
-    authenticator.options = { window: totp.window };
-  }
+  ) {}
 
   async enroll(user: User): Promise<TotpEnrollmentResult> {
     const totp = this.config.get<Config['totp']>('totp')!;
-    const secret = authenticator.generateSecret();
+    const secret = generateSecret();
     const accountName = user.email ?? user.id;
 
     const encryptedSecret = this.crypto.encrypt(secret);
@@ -42,7 +40,12 @@ export class TotpService {
       secret: encryptedSecret,
     });
 
-    const otpauthUrl = authenticator.keyuri(accountName, totp.issuer, secret);
+    const otpauthUrl = generateURI({
+      issuer: totp.issuer,
+      label: accountName,
+      secret,
+      strategy: 'totp',
+    });
     const qrDataUrl = await toDataURL(otpauthUrl);
 
     return {
@@ -77,7 +80,14 @@ export class TotpService {
   }
 
   private verifyCode(secretCiphertext: string, code: string): boolean {
+    const totp = this.config.get<Config['totp']>('totp')!;
     const secret = this.crypto.decrypt(secretCiphertext);
-    return authenticator.check(code, secret);
+    const result = verifySync({
+      strategy: 'totp',
+      token: code,
+      secret,
+      epochTolerance: totp.window * 30,
+    });
+    return result.valid;
   }
 }

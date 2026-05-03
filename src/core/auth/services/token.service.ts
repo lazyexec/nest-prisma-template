@@ -98,7 +98,7 @@ export class TokenService {
     const payload: JwtPayload = { sub: userId, tokenType: 'access' };
     return this.jwt.signAsync(payload, {
       secret: auth.jwtAccessSecret,
-      expiresIn: auth.jwtAccessExpiresIn,
+      expiresIn: this.parseDurationSeconds(auth.jwtAccessExpiresIn),
     });
   }
 
@@ -107,7 +107,7 @@ export class TokenService {
     const payload: JwtPayload = { sub: userId, tokenType: 'refresh' };
     return this.jwt.signAsync(payload, {
       secret: auth.jwtRefreshSecret,
-      expiresIn: auth.jwtRefreshExpiresIn,
+      expiresIn: this.parseDurationSeconds(auth.jwtRefreshExpiresIn),
     });
   }
 

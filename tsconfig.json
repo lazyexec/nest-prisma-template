@@ -24,7 +24,7 @@
     "paths": {
       "@": ["./src"],
       "@/*": ["./src/*"],
-      "@prisma-client": ["./prisma/generated/prisma/client"],
+      "@prisma-client": ["./src/database/prisma-client"],
       "@locals": ["./src/locals"]
 
     }

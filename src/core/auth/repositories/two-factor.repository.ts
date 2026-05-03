@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import type {
   TwoFactorBackupCode,
   TwoFactorMethod,
-  TwoFactorMethodType,
 } from '@prisma-client';
+import type { TwoFactorMethodType } from '@prisma-client';
 import { PrismaService } from '@/database/prisma.service';
 
 export interface UpsertMethodInput {

@@ -2,10 +2,11 @@ import * as bcrypt from 'bcryptjs';
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Inject,
   Injectable,
   Logger,
-  TooManyRequestsException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -59,8 +60,9 @@ export class OtpService {
       input.destination,
     );
     if (throttle >= otp.maxAttempts) {
-      throw new TooManyRequestsException(
+      throw new HttpException(
         'Too many OTP requests for this destination',
+        HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 
@@ -73,8 +75,9 @@ export class OtpService {
     if (existing) {
       const ageSeconds = Math.floor((Date.now() - existing.sentAt) / 1000);
       if (ageSeconds < otp.resendCooldownSeconds) {
-        throw new TooManyRequestsException(
+        throw new HttpException(
           `Wait ${otp.resendCooldownSeconds - ageSeconds}s before requesting another code`,
+          HttpStatus.TOO_MANY_REQUESTS,
         );
       }
     }
@@ -140,7 +143,10 @@ export class OtpService {
 
     if (record.attempts >= otp.maxAttempts) {
       await this.cache.deleteOtp(input.channel, input.userId, input.purpose);
-      throw new TooManyRequestsException('Too many incorrect attempts');
+      throw new HttpException(
+        'Too many incorrect attempts',
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
     }
 
     const matches = await bcrypt.compare(input.code, record.codeHash);

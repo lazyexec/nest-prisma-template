@@ -1,7 +1,8 @@
 import {
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
-  TooManyRequestsException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -49,8 +50,9 @@ export class LoginService {
 
     const fails = await this.cache.getLoginFails(emailHash);
     if (fails >= auth.loginMaxFails) {
-      throw new TooManyRequestsException(
+      throw new HttpException(
         'Too many failed attempts. Try again later.',
+        HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 

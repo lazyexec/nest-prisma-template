@@ -8,10 +8,10 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
-  TwoFactorMethodType,
   type TwoFactorMethod,
   type User,
 } from '@prisma-client';
+import { TwoFactorMethodType } from '@prisma-client';
 import { Config } from '@/configs/environment.config';
 import { CryptoService } from '@/common/crypto/crypto.service';
 import { TwoFactorRepository } from '@/core/auth/repositories/two-factor.repository';
