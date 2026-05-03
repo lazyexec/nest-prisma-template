@@ -1,9 +1,17 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import configuration from '@/configs/environment.config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerModule } from '@nestjs/throttler';
+import configuration, { Config } from '@/configs/environment.config';
 import { PrismaModule } from '@/database/prisma.module';
 import { CommonModule } from '@/common/common.module';
 import { RedisModule } from '@/infrastructure/redis/redis.module';
+import { CryptoModule } from '@/common/crypto/crypto.module';
+import { QueueModule } from '@/infrastructure/queue/queue.module';
+import { MailerModule } from '@/infrastructure/mailer/mailer.module';
+import { SmsModule } from '@/infrastructure/sms/sms.module';
+import { FcmTokenModule } from '@/core/fcm-token/fcm-token.module';
+import { HealthModule } from '@/core/health/health.module';
+import { AuthModule } from '@/core/auth/auth.module';
 
 @Module({
   imports: [
@@ -11,9 +19,28 @@ import { RedisModule } from '@/infrastructure/redis/redis.module';
       isGlobal: true,
       load: [configuration],
     }),
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService<Config>) => {
+        const config = configService.get('app');
+        return [
+          {
+            ttl: config?.rateLimitTtl ?? 60,
+            limit: config?.rateLimitLimit ?? 100,
+          },
+        ];
+      },
+    }),
     CommonModule,
     PrismaModule,
     RedisModule,
+    CryptoModule,
+    QueueModule,
+    MailerModule,
+    SmsModule,
+    AuthModule,
+    FcmTokenModule,
+    HealthModule,
   ],
   controllers: [],
   providers: [],

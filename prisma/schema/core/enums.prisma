@@ -20,3 +20,9 @@ enum UserStatus {
   RESTRICTED
   SUSPENDED
 }
+
+enum TwoFactorMethodType {
+  TOTP
+  EMAIL_OTP
+  SMS_OTP
+}

@@ -1,8 +1,26 @@
-model TwoFactor {
-  id        String  @id @default(uuid())
-  userId    String  @unique
-  secret    String // TOTP secret — encrypt before storing
-  isEnabled Boolean @default(false)
+// ============================================================
+// core/two-factor.prisma
+//
+// Multi-method 2FA. A user can enroll any of:
+//   TOTP      → authenticator app (secret stored, AES-GCM at rest)
+//   EMAIL_OTP → 6-digit code over email (no persistent secret;
+//               codes live in Redis under otp:email:*)
+//   SMS_OTP   → 6-digit code over phone (no persistent secret;
+//               codes live in Redis under otp:sms:*)
+//
+// Backup codes belong to a single method; regenerated as a set.
+// ============================================================
+
+model TwoFactorMethod {
+  id          String              @id @default(uuid())
+  userId      String
+  type        TwoFactorMethodType
+  isEnabled   Boolean             @default(false)
+  isPrimary   Boolean             @default(false)
+  secret      String? // TOTP only — AES-256-GCM (iv:tag:ciphertext)
+  destination String? // email/phone snapshot at enrollment for OTP
+  lastUsedAt  DateTime?
+  verifiedAt  DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -10,19 +28,21 @@ model TwoFactor {
   user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
   backupCodes TwoFactorBackupCode[]
 
-  @@map("two_factors")
+  @@unique([userId, type])
+  @@index([userId])
+  @@map("two_factor_methods")
 }
 
 model TwoFactorBackupCode {
-  id          String    @id @default(uuid())
-  twoFactorId String
-  codeHash    String    @unique // SHA-256 of plaintext backup code
-  usedAt      DateTime? // null = still valid
+  id       String    @id @default(uuid())
+  methodId String
+  codeHash String    @unique // SHA-256 of plaintext backup code
+  usedAt   DateTime? // null = still valid
 
   createdAt DateTime @default(now())
 
-  twoFactor TwoFactor @relation(fields: [twoFactorId], references: [id], onDelete: Cascade)
+  method TwoFactorMethod @relation(fields: [methodId], references: [id], onDelete: Cascade)
 
-  @@index([twoFactorId])
+  @@index([methodId])
   @@map("two_factor_backup_codes")
 }
