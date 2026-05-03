@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 import { setupSwagger } from '@/configs/swagger.config';
 import { Config } from '@/configs/environment.config';
+import { RedisIoAdapter } from '@/infrastructure/redis/redis-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -24,6 +25,14 @@ async function bootstrap() {
   if (config.get('app').nodeEnv !== 'production') {
     await setupSwagger(app);
   }
+
+  // REDIS ADAPTER
+  const redisIoAdapter = new RedisIoAdapter(app);
+  await redisIoAdapter.connectToRedis();
+  app.useWebSocketAdapter(redisIoAdapter);
+  app.getHttpServer().once('close', () => {
+    void redisIoAdapter.close();
+  });
 
   const port = config.get('app').port ?? 3000;
   await app.listen(port);

@@ -14,6 +14,11 @@ const envSchema = z.object({
     url: z.string().url(),
     poolSize: z.coerce.number().int().positive().default(10),
   }),
+  redis: z.object({
+    url: z.string().url(),
+    ttlSeconds: z.coerce.number().int().positive().default(300),
+    keyPrefix: z.string().trim().min(1).default('app:'),
+  }),
 });
 
 export default () =>
@@ -29,6 +34,11 @@ export default () =>
     database: {
       url: process.env.DATABASE_URL,
       poolSize: process.env.DATABASE_POOL_SIZE,
+    },
+    redis: {
+      url: process.env.REDIS_URL,
+      ttlSeconds: process.env.REDIS_TTL_SECONDS,
+      keyPrefix: process.env.REDIS_KEY_PREFIX,
     },
   });
 
