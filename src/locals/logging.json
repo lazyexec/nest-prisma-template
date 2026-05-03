@@ -1,0 +1,4 @@
+{
+  "request_log_format": "{method} {url} {statusCode} - {duration}ms",
+  "warning_log_format": "{method} {url} -> {statusCode}: {message}"
+}

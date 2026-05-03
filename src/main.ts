@@ -10,6 +10,8 @@ async function bootstrap() {
   const config = app.get(ConfigService<Config>);
 
   app.setGlobalPrefix('api/v1');
+  app.enableShutdownHooks();
+  app.enableCors();
 
   app.useGlobalPipes(
     new ValidationPipe({

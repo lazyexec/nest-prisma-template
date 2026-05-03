@@ -1,4 +1,7 @@
 import pagination from './pagination.json';
+import response from './response.json';
+import error from './error.json';
+import logging from './logging.json';
 //
 //
 //
@@ -19,5 +22,8 @@ function withFallback<T extends Record<string, any>>(obj: T): T {
 }
 
 export default withFallback({
-  pagination
+  pagination,
+  response,
+  error,
+  logging,
 });
