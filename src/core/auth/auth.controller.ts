@@ -68,13 +68,20 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  registerAccount(@Body() dto: RegisterDto, @Req() req: Request) {
-    return this.register.register(dto, this.requestContext(req));
+  async registerAccount(@Body() dto: RegisterDto, @Req() req: Request) {
+    const tokens = await this.register.register(dto, this.requestContext(req));
+    return { root: { tokens } };
   }
 
   @Post('login')
-  loginAccount(@Body() dto: LoginDto, @Req() req: Request) {
-    return this.login.login(dto, this.requestContext(req));
+  async loginAccount(@Body() dto: LoginDto, @Req() req: Request) {
+    const result = await this.login.login(dto, this.requestContext(req));
+    if (result.kind === 'tokens') {
+      return { root: { tokens: result.tokens } };
+    }
+    return {
+      root: { challengeId: result.challengeId, methods: result.methods },
+    };
   }
 
   @Post('refresh')
@@ -86,11 +93,12 @@ export class AuthController {
     if (payload.tokenType !== 'refresh') {
       throw new UnauthorizedException('Refresh token required');
     }
-    return this.tokens.rotate(
+    const tokens = await this.tokens.rotate(
       payload.sub,
       dto.refreshToken,
       this.requestContext(req),
     );
+    return { root: { tokens } };
   }
 
   @Post('logout')
@@ -264,16 +272,17 @@ export class AuthController {
   }
 
   @Post('2fa/challenge/verify')
-  verifyTwoFactorChallenge(
+  async verifyTwoFactorChallenge(
     @Body() dto: TwoFactorChallengeVerifyDto,
     @Req() req: Request,
   ) {
-    return this.twoFactor.verifyChallenge(
+    const tokens = await this.twoFactor.verifyChallenge(
       dto.challengeId,
       dto.type,
       dto.code,
       this.requestContext(req),
     );
+    return { root: { tokens } };
   }
 
   private requestContext(req: Request): { ip?: string; userAgent?: string } {

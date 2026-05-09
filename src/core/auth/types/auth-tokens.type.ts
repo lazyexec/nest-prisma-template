@@ -1,8 +1,11 @@
+export interface TokenPair {
+  token: string;
+  expiresAt: Date;
+}
+
 export interface AuthTokens {
-  accessToken: string;
-  refreshToken: string;
-  accessTokenExpiresIn: number;
-  refreshTokenExpiresIn: number;
+  access: TokenPair;
+  refresh: TokenPair;
 }
 
 export interface RequestContext {

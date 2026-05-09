@@ -14,20 +14,27 @@ export interface ApiResponse<T> {
   success: boolean;
   message: string;
   statusCode: number;
-  data: T | null;
+  data?: T | null;
   metadata?: Record<string, unknown>;
   pagination?: PaginationMeta;
+  [key: string]: unknown;
 }
 
 export interface ServiceResponse<T> {
   message?: string;
-  data: T;
+  data?: T;
   metadata?: Record<string, unknown>;
   pagination?: PaginationMeta;
+  /**
+   * Top-level keys spread alongside `success`/`message`/`statusCode`.
+   * Use when an endpoint's payload should sit at the root rather than under `data`.
+   */
+  root?: Record<string, unknown>;
 }
 
 function isServiceResponse<T>(value: unknown): value is ServiceResponse<T> {
-  return value !== null && typeof value === 'object' && 'data' in value;
+  if (value === null || typeof value !== 'object') return false;
+  return 'data' in value || 'root' in value;
 }
 
 @Injectable()
@@ -47,7 +54,7 @@ export class TransformResponseInterceptor<T>
         const statusCode = response.statusCode ?? HttpStatus.OK;
 
         if (isServiceResponse<T>(returned)) {
-          const { message, data, metadata, pagination } = returned;
+          const { message, data, metadata, pagination, root } = returned;
           return {
             success: true,
             message:
@@ -55,9 +62,10 @@ export class TransformResponseInterceptor<T>
               response.locals?.message ??
               this.defaultMessage(statusCode, request.method),
             statusCode,
-            data: data ?? null,
+            ...(data !== undefined && { data }),
             ...(metadata && { metadata }),
             ...(pagination && { pagination }),
+            ...(root ?? {}),
           };
         }
 

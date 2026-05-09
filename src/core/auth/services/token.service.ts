@@ -33,15 +33,18 @@ export class TokenService {
     const refreshToken = await this.signRefreshToken(userId);
     const refreshTokenHash = this.crypto.hashSha256(refreshToken);
 
+    const accessTtlSeconds = this.parseDurationSeconds(auth.jwtAccessExpiresIn);
     const refreshTtlSeconds = this.parseDurationSeconds(
       auth.jwtRefreshExpiresIn,
     );
-    const expiresAt = new Date(Date.now() + refreshTtlSeconds * 1000);
+    const now = Date.now();
+    const accessExpiresAt = new Date(now + accessTtlSeconds * 1000);
+    const refreshExpiresAt = new Date(now + refreshTtlSeconds * 1000);
 
     await this.sessions.create({
       userId,
       refreshTokenHash,
-      expiresAt,
+      expiresAt: refreshExpiresAt,
       ipAddress: context.ip ?? null,
       userAgent: context.userAgent ?? null,
     });
@@ -53,10 +56,8 @@ export class TokenService {
     );
 
     return {
-      accessToken,
-      refreshToken,
-      accessTokenExpiresIn: this.parseDurationSeconds(auth.jwtAccessExpiresIn),
-      refreshTokenExpiresIn: refreshTtlSeconds,
+      access: { token: accessToken, expiresAt: accessExpiresAt },
+      refresh: { token: refreshToken, expiresAt: refreshExpiresAt },
     };
   }
 
