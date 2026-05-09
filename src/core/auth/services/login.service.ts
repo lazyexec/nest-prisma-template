@@ -5,10 +5,9 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { AuthProvider, UserStatus } from '@prisma-client';
-import { Config } from '@/configs/environment.config';
+import { AUTH_POLICY } from '@/configs/auth.policy';
 import { CryptoService } from '@/common/crypto/crypto.service';
 import { AuthCacheService } from '@/core/auth/services/auth-cache.service';
 import { TokenService } from '@/core/auth/services/token.service';
@@ -34,7 +33,6 @@ export type LoginResult =
 @Injectable()
 export class LoginService {
   constructor(
-    private readonly config: ConfigService<Config>,
     private readonly crypto: CryptoService,
     private readonly cache: AuthCacheService,
     private readonly users: UserRepository,
@@ -45,11 +43,10 @@ export class LoginService {
   ) {}
 
   async login(dto: LoginDto, context: RequestContext): Promise<LoginResult> {
-    const auth = this.config.get<Config['auth']>('auth')!;
     const emailHash = this.crypto.hashSha256(dto.email);
 
     const fails = await this.cache.getLoginFails(emailHash);
-    if (fails >= auth.loginMaxFails) {
+    if (fails >= AUTH_POLICY.loginMaxFails) {
       throw new HttpException(
         'Too many failed attempts. Try again later.',
         HttpStatus.TOO_MANY_REQUESTS,
@@ -103,11 +100,10 @@ export class LoginService {
   }
 
   private async recordFail(emailHash: string, current: number): Promise<void> {
-    const auth = this.config.get<Config['auth']>('auth')!;
     await this.cache.setLoginFails(
       emailHash,
       current + 1,
-      auth.loginLockoutTtlSeconds,
+      AUTH_POLICY.loginLockoutTtlSeconds,
     );
   }
 }

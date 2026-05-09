@@ -7,6 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { AuthProvider } from '@prisma-client';
 import { Config } from '@/configs/environment.config';
+import { AUTH_POLICY } from '@/configs/auth.policy';
 import { CryptoService } from '@/common/crypto/crypto.service';
 import { MAILER_PORT } from '@/infrastructure/mailer/mailer.constants';
 import type { MailerPort } from '@/infrastructure/mailer/mailer.types';
@@ -34,7 +35,6 @@ export class ChangeContactService {
       throw new ConflictException('Email already in use');
     }
 
-    const auth = this.config.get<Config['auth']>('auth')!;
     const app = this.config.get<Config['app']>('app')!;
 
     const rawToken = this.crypto.randomToken(32);
@@ -43,11 +43,11 @@ export class ChangeContactService {
     await this.cache.setEmailVerify(
       tokenHash,
       { userId, email: newEmail },
-      auth.emailVerifyTtlSeconds,
+      AUTH_POLICY.emailVerifyTtlSeconds,
     );
 
     const link = `${app.frontendUrl.replace(/\/$/, '')}/verify-email?token=${rawToken}`;
-    const hours = Math.round(auth.emailVerifyTtlSeconds / 3600);
+    const hours = Math.round(AUTH_POLICY.emailVerifyTtlSeconds / 3600);
     await this.mailer.send({
       to: newEmail,
       subject: 'Confirm your new email',

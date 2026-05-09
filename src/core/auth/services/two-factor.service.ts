@@ -6,13 +6,12 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import {
   type TwoFactorMethod,
   type User,
 } from '@prisma-client';
 import { TwoFactorMethodType } from '@prisma-client';
-import { Config } from '@/configs/environment.config';
+import { AUTH_POLICY } from '@/configs/auth.policy';
 import { CryptoService } from '@/common/crypto/crypto.service';
 import { TwoFactorRepository } from '@/core/auth/repositories/two-factor.repository';
 import { UserRepository } from '@/core/auth/repositories/user.repository';
@@ -43,7 +42,6 @@ export interface BackupCodesResult {
 @Injectable()
 export class TwoFactorService {
   constructor(
-    private readonly config: ConfigService<Config>,
     private readonly crypto: CryptoService,
     private readonly cache: AuthCacheService,
     private readonly twoFactor: TwoFactorRepository,
@@ -198,7 +196,6 @@ export class TwoFactorService {
     enabledMethods: TwoFactorMethod[],
     context: RequestContext,
   ): Promise<ChallengeIssued> {
-    const auth = this.config.get<Config['auth']>('auth')!;
     const challengeId = this.crypto.randomToken(24);
 
     const record: TwoFactorChallengeRecord = {
@@ -212,7 +209,7 @@ export class TwoFactorService {
     await this.cache.setTwoFactorChallenge(
       challengeId,
       record,
-      auth.twoFactorChallengeTtlSeconds,
+      AUTH_POLICY.twoFactorChallengeTtlSeconds,
     );
 
     return {

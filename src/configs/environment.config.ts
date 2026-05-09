@@ -31,22 +31,6 @@ const envSchema = z.object({
       .string()
       .trim()
       .min(32, 'AUTH_ENCRYPTION_KEY must be 32 bytes (base64-encoded)'),
-    loginMaxFails: z.coerce.number().int().positive().default(10),
-    loginLockoutTtlSeconds: z.coerce.number().int().positive().default(900),
-    passwordResetTtlSeconds: z.coerce.number().int().positive().default(1800),
-    emailVerifyTtlSeconds: z.coerce.number().int().positive().default(86_400),
-    twoFactorChallengeTtlSeconds: z.coerce
-      .number()
-      .int()
-      .positive()
-      .default(300),
-  }),
-  otp: z.object({
-    length: z.coerce.number().int().min(4).max(10).default(6),
-    emailTtlSeconds: z.coerce.number().int().positive().default(600),
-    smsTtlSeconds: z.coerce.number().int().positive().default(300),
-    maxAttempts: z.coerce.number().int().positive().default(5),
-    resendCooldownSeconds: z.coerce.number().int().positive().default(60),
   }),
   totp: z.object({
     issuer: z.string().trim().min(1).default('NestPrismaTemplate'),
@@ -129,19 +113,6 @@ export default () =>
       jwtRefreshSecret: process.env.JWT_REFRESH_SECRET,
       jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN,
       encryptionKey: process.env.AUTH_ENCRYPTION_KEY,
-      loginMaxFails: process.env.AUTH_LOGIN_MAX_FAILS,
-      loginLockoutTtlSeconds: process.env.AUTH_LOGIN_LOCKOUT_TTL_SECONDS,
-      passwordResetTtlSeconds: process.env.AUTH_PASSWORD_RESET_TTL_SECONDS,
-      emailVerifyTtlSeconds: process.env.AUTH_EMAIL_VERIFY_TTL_SECONDS,
-      twoFactorChallengeTtlSeconds:
-        process.env.AUTH_2FA_CHALLENGE_TTL_SECONDS,
-    },
-    otp: {
-      length: process.env.OTP_LENGTH,
-      emailTtlSeconds: process.env.OTP_EMAIL_TTL_SECONDS,
-      smsTtlSeconds: process.env.OTP_SMS_TTL_SECONDS,
-      maxAttempts: process.env.OTP_MAX_ATTEMPTS,
-      resendCooldownSeconds: process.env.OTP_RESEND_COOLDOWN_SECONDS,
     },
     totp: {
       issuer: process.env.TOTP_ISSUER,

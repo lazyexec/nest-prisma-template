@@ -9,8 +9,7 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { Config } from '@/configs/environment.config';
+import { OTP_POLICY } from '@/configs/auth.policy';
 import { MAILER_PORT } from '@/infrastructure/mailer/mailer.constants';
 import type { MailerPort } from '@/infrastructure/mailer/mailer.types';
 import { SMS_PORT } from '@/infrastructure/sms/sms.constants';
@@ -44,7 +43,6 @@ export class OtpService {
   private readonly logger = new Logger(OtpService.name);
 
   constructor(
-    private readonly config: ConfigService<Config>,
     private readonly crypto: CryptoService,
     private readonly cache: AuthCacheService,
     @Inject(MAILER_PORT) private readonly mailer: MailerPort,
@@ -52,14 +50,12 @@ export class OtpService {
   ) {}
 
   async send(input: SendOtpInput): Promise<void> {
-    const otp = this.config.get<Config['otp']>('otp')!;
-
     // Per-destination throttle prevents enumeration / abuse.
     const throttle = await this.cache.getOtpThrottle(
       input.channel,
       input.destination,
     );
-    if (throttle >= otp.maxAttempts) {
+    if (throttle >= OTP_POLICY.maxAttempts) {
       throw new HttpException(
         'Too many OTP requests for this destination',
         HttpStatus.TOO_MANY_REQUESTS,
@@ -74,9 +70,9 @@ export class OtpService {
     );
     if (existing) {
       const ageSeconds = Math.floor((Date.now() - existing.sentAt) / 1000);
-      if (ageSeconds < otp.resendCooldownSeconds) {
+      if (ageSeconds < OTP_POLICY.resendCooldownSeconds) {
         throw new HttpException(
-          `Wait ${otp.resendCooldownSeconds - ageSeconds}s before requesting another code`,
+          `Wait ${OTP_POLICY.resendCooldownSeconds - ageSeconds}s before requesting another code`,
           HttpStatus.TOO_MANY_REQUESTS,
         );
       }
@@ -86,11 +82,13 @@ export class OtpService {
       throw new ForbiddenException('SMS OTP is not enabled on this server');
     }
 
-    const code = this.crypto.randomNumericCode(otp.length);
+    const code = this.crypto.randomNumericCode(OTP_POLICY.length);
     const codeHash = await bcrypt.hash(code, BCRYPT_ROUNDS);
 
     const ttl =
-      input.channel === 'email' ? otp.emailTtlSeconds : otp.smsTtlSeconds;
+      input.channel === 'email'
+        ? OTP_POLICY.emailTtlSeconds
+        : OTP_POLICY.smsTtlSeconds;
 
     await this.cache.setOtp(
       input.channel,
@@ -131,7 +129,6 @@ export class OtpService {
   }
 
   async verify(input: VerifyOtpInput): Promise<{ destination: string }> {
-    const otp = this.config.get<Config['otp']>('otp')!;
     const record = await this.cache.getOtp(
       input.channel,
       input.userId,
@@ -141,7 +138,7 @@ export class OtpService {
       throw new UnauthorizedException('Code is invalid or expired');
     }
 
-    if (record.attempts >= otp.maxAttempts) {
+    if (record.attempts >= OTP_POLICY.maxAttempts) {
       await this.cache.deleteOtp(input.channel, input.userId, input.purpose);
       throw new HttpException(
         'Too many incorrect attempts',
@@ -155,8 +152,8 @@ export class OtpService {
         1,
         Math.floor(
           ((input.channel === 'email'
-            ? otp.emailTtlSeconds
-            : otp.smsTtlSeconds) *
+            ? OTP_POLICY.emailTtlSeconds
+            : OTP_POLICY.smsTtlSeconds) *
             1000 -
             (Date.now() - record.sentAt)) /
             1000,

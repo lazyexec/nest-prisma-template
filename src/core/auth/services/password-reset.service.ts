@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { AuthProvider } from '@prisma-client';
 import { Config } from '@/configs/environment.config';
+import { AUTH_POLICY } from '@/configs/auth.policy';
 import { CryptoService } from '@/common/crypto/crypto.service';
 import { MAILER_PORT } from '@/infrastructure/mailer/mailer.constants';
 import type { MailerPort } from '@/infrastructure/mailer/mailer.types';
@@ -44,7 +45,6 @@ export class PasswordResetService {
     const sendLink = options?.sendLink ?? true;
     const sendOtp = options?.sendOtp ?? true;
 
-    const auth = this.config.get<Config['auth']>('auth')!;
     const app = this.config.get<Config['app']>('app')!;
 
     if (sendLink) {
@@ -54,11 +54,11 @@ export class PasswordResetService {
       await this.cache.setPasswordReset(
         tokenHash,
         { userId: user.id },
-        auth.passwordResetTtlSeconds,
+        AUTH_POLICY.passwordResetTtlSeconds,
       );
 
       const link = `${app.frontendUrl.replace(/\/$/, '')}/reset-password?token=${rawToken}`;
-      const minutes = Math.round(auth.passwordResetTtlSeconds / 60);
+      const minutes = Math.round(AUTH_POLICY.passwordResetTtlSeconds / 60);
 
       try {
         await this.mailer.send({

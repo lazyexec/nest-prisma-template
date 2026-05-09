@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Config } from '@/configs/environment.config';
+import { AUTH_POLICY } from '@/configs/auth.policy';
 import { CryptoService } from '@/common/crypto/crypto.service';
 import { MAILER_PORT } from '@/infrastructure/mailer/mailer.constants';
 import type { MailerPort } from '@/infrastructure/mailer/mailer.types';
@@ -25,7 +26,6 @@ export class EmailVerifyService {
   ) {}
 
   async issueAndSend(userId: string, email: string): Promise<void> {
-    const auth = this.config.get<Config['auth']>('auth')!;
     const app = this.config.get<Config['app']>('app')!;
 
     const rawToken = this.crypto.randomToken(32);
@@ -34,15 +34,16 @@ export class EmailVerifyService {
     await this.cache.setEmailVerify(
       tokenHash,
       { userId, email },
-      auth.emailVerifyTtlSeconds,
+      AUTH_POLICY.emailVerifyTtlSeconds,
     );
 
+    const hours = Math.round(AUTH_POLICY.emailVerifyTtlSeconds / 3600);
     const link = `${app.frontendUrl.replace(/\/$/, '')}/verify-email?token=${rawToken}`;
     await this.mailer.send({
       to: email,
       subject: 'Verify your email',
-      text: `Click to verify your email: ${link}\n\nThis link expires in ${Math.round(auth.emailVerifyTtlSeconds / 3600)}h.`,
-      html: `<p>Click to verify your email:</p><p><a href="${link}">${link}</a></p><p>This link expires in ${Math.round(auth.emailVerifyTtlSeconds / 3600)}h.</p>`,
+      text: `Click to verify your email: ${link}\n\nThis link expires in ${hours}h.`,
+      html: `<p>Click to verify your email:</p><p><a href="${link}">${link}</a></p><p>This link expires in ${hours}h.</p>`,
     });
   }
 
