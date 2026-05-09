@@ -19,11 +19,16 @@ import { JwtAuthGuard } from '@/core/auth/guards/jwt.guard';
 import { UserRepository } from '@/core/auth/repositories/user.repository';
 import { ChangePasswordDto } from '@/core/auth/dto/change-password.dto';
 import {
+  ConfirmEmailChangeDto,
+  RequestEmailChangeDto,
+} from '@/core/auth/dto/email-change.dto';
+import {
   ConfirmEnrollmentDto,
   EnrollEmailOtpDto,
   EnrollSmsOtpDto,
 } from '@/core/auth/dto/enroll-2fa.dto';
 import { ForgetPasswordDto } from '@/core/auth/dto/forget-password.dto';
+import { SetPasswordDto } from '@/core/auth/dto/set-password.dto';
 import { LoginDto } from '@/core/auth/dto/login.dto';
 import { RefreshDto } from '@/core/auth/dto/refresh.dto';
 import { RegisterDto } from '@/core/auth/dto/register.dto';
@@ -41,6 +46,7 @@ import {
   ConfirmEmailVerificationOtpDto,
   ResendEmailVerificationDto,
 } from '@/core/auth/dto/verify-email.dto';
+import { ChangeContactService } from '@/core/auth/services/change-contact.service';
 import { EmailVerifyService } from '@/core/auth/services/email-verify.service';
 import { LoginService } from '@/core/auth/services/login.service';
 import { PasswordChangeService } from '@/core/auth/services/password-change.service';
@@ -64,6 +70,7 @@ export class AuthController {
     private readonly emailVerify: EmailVerifyService,
     private readonly passwordReset: PasswordResetService,
     private readonly passwordChange: PasswordChangeService,
+    private readonly changeContact: ChangeContactService,
     private readonly twoFactor: TwoFactorService,
     private readonly totp: TotpService,
   ) {}
@@ -179,6 +186,29 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Post('password/set')
+  async setPassword(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: SetPasswordDto,
+  ): Promise<void> {
+    await this.passwordChange.set(userId, dto.password);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('email/change/request')
+  async requestEmailChange(
+    @CurrentUser('sub') userId: string,
+    @Body() dto: RequestEmailChangeDto,
+  ): Promise<void> {
+    await this.changeContact.requestEmailChange(userId, dto.email);
+  }
+
+  @Post('email/change/confirm')
+  async confirmEmailChange(@Body() dto: ConfirmEmailChangeDto) {
+    return this.changeContact.confirmEmailChange(dto.token);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Get('2fa/methods')
   listTwoFactorMethods(@CurrentUser('sub') userId: string) {
     return this.twoFactor.listMethods(userId);
@@ -197,8 +227,9 @@ export class AuthController {
   async confirmTotp(
     @CurrentUser('sub') userId: string,
     @Body() dto: ConfirmEnrollmentDto,
-  ): Promise<void> {
+  ) {
     await this.totp.confirm(userId, dto.code);
+    return this.firstEnrollmentBackupCodes(userId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -217,8 +248,9 @@ export class AuthController {
   async confirmEmailOtp(
     @CurrentUser('sub') userId: string,
     @Body() dto: ConfirmEnrollmentDto,
-  ): Promise<void> {
+  ) {
     await this.twoFactor.confirmEmailOtp(userId, dto.code);
+    return this.firstEnrollmentBackupCodes(userId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -237,8 +269,9 @@ export class AuthController {
   async confirmSmsOtp(
     @CurrentUser('sub') userId: string,
     @Body() dto: ConfirmEnrollmentDto,
-  ): Promise<void> {
+  ) {
     await this.twoFactor.confirmSmsOtp(userId, dto.code);
+    return this.firstEnrollmentBackupCodes(userId);
   }
 
   @UseGuards(JwtAuthGuard)
@@ -251,12 +284,15 @@ export class AuthController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post('2fa/methods/:methodId/backup-codes/regenerate')
-  regenerateBackupCodes(
-    @CurrentUser('sub') userId: string,
-    @Param('methodId') methodId: string,
-  ) {
-    return this.twoFactor.regenerateBackupCodes(userId, methodId);
+  @Get('2fa/backup-codes')
+  countBackupCodes(@CurrentUser('sub') userId: string) {
+    return this.twoFactor.countBackupCodes(userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('2fa/backup-codes/regenerate')
+  regenerateBackupCodes(@CurrentUser('sub') userId: string) {
+    return this.twoFactor.regenerateBackupCodes(userId);
   }
 
   @Post('2fa/challenge/send')
@@ -278,6 +314,13 @@ export class AuthController {
       this.requestContext(req),
     );
     return { root: { tokens } };
+  }
+
+  private async firstEnrollmentBackupCodes(
+    userId: string,
+  ): Promise<{ data: { backupCodes: string[] } } | undefined> {
+    const codes = await this.twoFactor.issueBackupCodesIfNone(userId);
+    return codes ? { data: { backupCodes: codes } } : undefined;
   }
 
   private requestContext(req: Request): { ip?: string; userAgent?: string } {

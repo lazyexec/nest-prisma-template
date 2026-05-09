@@ -8,7 +8,8 @@
 //   SMS_OTP   → 6-digit code over phone (no persistent secret;
 //               codes live in Redis under otp:sms:*)
 //
-// Backup codes belong to a single method; regenerated as a set.
+// Backup codes are per-user (recovery codes), not per-method. They work as
+// a last-resort regardless of which factor failed, matching industry norms.
 // ============================================================
 
 model TwoFactorMethod {
@@ -25,8 +26,7 @@ model TwoFactorMethod {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  user        User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  backupCodes TwoFactorBackupCode[]
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, type])
   @@index([userId])
@@ -35,14 +35,14 @@ model TwoFactorMethod {
 
 model TwoFactorBackupCode {
   id       String    @id @default(uuid())
-  methodId String
+  userId   String
   codeHash String    @unique // SHA-256 of plaintext backup code
   usedAt   DateTime? // null = still valid
 
   createdAt DateTime @default(now())
 
-  method TwoFactorMethod @relation(fields: [methodId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([methodId])
+  @@index([userId])
   @@map("two_factor_backup_codes")
 }

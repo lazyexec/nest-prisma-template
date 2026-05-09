@@ -70,27 +70,27 @@ export class TwoFactorRepository {
     return this.prisma.twoFactorMethod.delete({ where: { id } });
   }
 
-  // ---------- Backup codes ----------
+  // ---------- Backup codes (per-user) ----------
   replaceBackupCodes(
-    methodId: string,
+    userId: string,
     codeHashes: string[],
   ): Promise<TwoFactorBackupCode[]> {
     return this.prisma.$transaction(async (tx) => {
-      await tx.twoFactorBackupCode.deleteMany({ where: { methodId } });
+      await tx.twoFactorBackupCode.deleteMany({ where: { userId } });
       if (codeHashes.length === 0) return [];
       await tx.twoFactorBackupCode.createMany({
-        data: codeHashes.map((codeHash) => ({ methodId, codeHash })),
+        data: codeHashes.map((codeHash) => ({ userId, codeHash })),
       });
-      return tx.twoFactorBackupCode.findMany({ where: { methodId } });
+      return tx.twoFactorBackupCode.findMany({ where: { userId } });
     });
   }
 
   findBackupCode(
-    methodId: string,
+    userId: string,
     codeHash: string,
   ): Promise<TwoFactorBackupCode | null> {
     return this.prisma.twoFactorBackupCode.findFirst({
-      where: { methodId, codeHash, usedAt: null },
+      where: { userId, codeHash, usedAt: null },
     });
   }
 
@@ -99,5 +99,15 @@ export class TwoFactorRepository {
       where: { id },
       data: { usedAt: new Date() },
     });
+  }
+
+  countUnusedBackupCodes(userId: string): Promise<number> {
+    return this.prisma.twoFactorBackupCode.count({
+      where: { userId, usedAt: null },
+    });
+  }
+
+  async clearBackupCodes(userId: string): Promise<void> {
+    await this.prisma.twoFactorBackupCode.deleteMany({ where: { userId } });
   }
 }

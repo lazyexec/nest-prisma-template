@@ -9,14 +9,14 @@
 // ============================================================
 
 model Transaction {
-  id            String  @id @default(uuid())
-  userId        String
-  type          String  // "payment" | "refund" | "credit" | "debit" — extend per project
-  amount        Int     // store in smallest currency unit (cents)
-  currency      String  @default("USD")
-  status        String  // "pending" | "success" | "failed" — extend per project
-  referenceId   String? // external ref: Stripe charge ID, order ID, etc.
-  metadata      Json?   // any extra context
+  id          String  @id @default(uuid())
+  userId      String
+  type        String // "payment" | "refund" | "credit" | "debit" — extend per project
+  amount      Int // store in smallest currency unit (cents)
+  currency    String  @default("USD")
+  status      String // "pending" | "success" | "failed" — extend per project
+  referenceId String? // external ref: Stripe charge ID, order ID, etc.
+  metadata    Json? // any extra context
 
   createdAt DateTime @default(now())
 

@@ -165,29 +165,49 @@ export class TwoFactorService {
       throw new NotFoundException('Two-factor method not found');
     }
     await this.twoFactor.delete(methodId);
+
+    // If the user has no enabled methods left, recovery codes have nothing
+    // to recover to — clear them so they don't survive as a stale auth path.
+    const remaining = await this.twoFactor.findEnabledForUser(userId);
+    if (remaining.length === 0) {
+      await this.twoFactor.clearBackupCodes(userId);
+    }
   }
 
-  // ---------- Backup codes ----------
-  async regenerateBackupCodes(
-    userId: string,
-    methodId: string,
-  ): Promise<BackupCodesResult> {
-    const method = await this.twoFactor.findById(methodId);
-    if (!method || method.userId !== userId) {
-      throw new NotFoundException('Two-factor method not found');
-    }
-    if (!method.isEnabled) {
+  // ---------- Backup codes (per-user) ----------
+  async regenerateBackupCodes(userId: string): Promise<BackupCodesResult> {
+    const enabled = await this.twoFactor.findEnabledForUser(userId);
+    if (enabled.length === 0) {
       throw new ConflictException(
-        'Method must be enabled before generating backup codes',
+        'Enable a 2FA method before generating backup codes',
       );
     }
+    return { codes: await this.replaceBackupCodes(userId) };
+  }
 
+  async countBackupCodes(userId: string): Promise<{ remaining: number }> {
+    const remaining = await this.twoFactor.countUnusedBackupCodes(userId);
+    return { remaining };
+  }
+
+  /**
+   * Issues backup codes only if the user has none yet. Returns the plaintext
+   * codes (visible once) on first enrollment; null afterwards. Call after
+   * confirming any 2FA method.
+   */
+  async issueBackupCodesIfNone(userId: string): Promise<string[] | null> {
+    const existing = await this.twoFactor.countUnusedBackupCodes(userId);
+    if (existing > 0) return null;
+    return this.replaceBackupCodes(userId);
+  }
+
+  private async replaceBackupCodes(userId: string): Promise<string[]> {
     const codes = Array.from({ length: BACKUP_CODE_COUNT }, () =>
       this.crypto.randomToken(BACKUP_CODE_BYTES),
     );
     const hashes = codes.map((code) => this.crypto.hashSha256(code));
-    await this.twoFactor.replaceBackupCodes(method.id, hashes);
-    return { codes };
+    await this.twoFactor.replaceBackupCodes(userId, hashes);
+    return codes;
   }
 
   // ---------- Challenge issuance (called by login) ----------
@@ -290,12 +310,12 @@ export class TwoFactorService {
         });
         ok = true;
       } catch {
-        ok = await this.tryConsumeBackupCode(method.id, code);
+        ok = await this.tryConsumeBackupCode(user.id, code);
       }
     }
 
     if (!ok) {
-      ok = await this.tryConsumeBackupCode(method.id, code);
+      ok = await this.tryConsumeBackupCode(user.id, code);
     }
 
     if (!ok) {
@@ -309,11 +329,11 @@ export class TwoFactorService {
   }
 
   private async tryConsumeBackupCode(
-    methodId: string,
+    userId: string,
     code: string,
   ): Promise<boolean> {
     const codeHash = this.crypto.hashSha256(code);
-    const backup = await this.twoFactor.findBackupCode(methodId, codeHash);
+    const backup = await this.twoFactor.findBackupCode(userId, codeHash);
     if (!backup) return false;
     await this.twoFactor.consumeBackupCode(backup.id);
     return true;

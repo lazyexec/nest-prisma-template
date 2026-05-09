@@ -14,10 +14,11 @@ model User {
   isDeleted Boolean   @default(false)
   deletedAt DateTime? // soft delete
 
-  profile          Profile?
-  credentials      Credential[]
-  sessions         Session[]
-  twoFactorMethods TwoFactorMethod[]
+  profile              Profile?
+  credentials          Credential[]
+  sessions             Session[]
+  twoFactorMethods     TwoFactorMethod[]
+  twoFactorBackupCodes TwoFactorBackupCode[]
 
   @@map("users")
 }
