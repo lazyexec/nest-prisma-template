@@ -6,6 +6,7 @@ import type {
   UserStatus,
 } from '@prisma-client';
 import { PrismaService } from '@/database/prisma.service';
+import type { AuthUser } from '@/core/auth/types/auth-user.type';
 
 export interface CreateUserInput {
   email?: string | null;
@@ -24,6 +25,26 @@ export class UserRepository {
     return this.prisma.user.findFirst({
       where: { id, isDeleted: false },
     });
+  }
+
+  async findAuthUser(id: string): Promise<AuthUser | null> {
+    const row = await this.prisma.user.findFirst({
+      where: { id, isDeleted: false },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        profile: { select: { name: true, avatarUrl: true } },
+      },
+    });
+    if (!row) return null;
+    return {
+      id: row.id,
+      name: row.profile?.name ?? null,
+      avatar: row.profile?.avatarUrl ?? null,
+      email: row.email,
+      role: row.role,
+    };
   }
 
   findByEmail(email: string): Promise<User | null> {

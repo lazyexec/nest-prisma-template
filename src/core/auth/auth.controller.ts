@@ -77,7 +77,10 @@ export class AuthController {
   async loginAccount(@Body() dto: LoginDto, @Req() req: Request) {
     const result = await this.login.login(dto, this.requestContext(req));
     if (result.kind === 'tokens') {
-      return { root: { tokens: result.tokens } };
+      return {
+        data: result.user ,
+        root: { tokens: result.tokens },
+      };
     }
     return {
       root: { challengeId: result.challengeId, methods: result.methods },

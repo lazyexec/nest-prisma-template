@@ -20,10 +20,11 @@ import type {
   AuthTokens,
   RequestContext,
 } from '@/core/auth/types/auth-tokens.type';
+import type { AuthUser } from '@/core/auth/types/auth-user.type';
 import type { TwoFactorMethodType } from '@prisma-client';
 
 export type LoginResult =
-  | { kind: 'tokens'; tokens: AuthTokens }
+  | { kind: 'tokens'; tokens: AuthTokens; user: AuthUser }
   | {
       kind: 'two-factor';
       challengeId: string;
@@ -95,8 +96,12 @@ export class LoginService {
       };
     }
 
+    const authUser = await this.users.findAuthUser(user.id);
+    if (!authUser) {
+      throw new UnauthorizedException('Account no longer available');
+    }
     const tokens = await this.tokens.issue(user.id, context);
-    return { kind: 'tokens', tokens };
+    return { kind: 'tokens', tokens, user: authUser };
   }
 
   private async recordFail(emailHash: string, current: number): Promise<void> {
