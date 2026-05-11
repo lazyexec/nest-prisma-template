@@ -83,6 +83,50 @@ Check out a few resources that may come in handy when working with NestJS:
 - To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
 - Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
 
+## Observability (OpenTelemetry + Pino)
+
+This template ships OpenTelemetry instrumentation under `src/infrastructure/observability/`. Traces and metrics are exported via OTLP HTTP, and logs are emitted as structured JSON via Pino with the active OTel `trace_id` / `span_id` for log-trace correlation.
+
+### Run local stack
+
+```bash
+docker compose up --build -d
+docker compose logs -f app
+docker compose down
+```
+
+The default compose stack includes:
+
+- **app** (Nest server, port 3000)
+- **postgres** (port 5432, volume `postgres-data`)
+- **redis** (port 6379, volume `redis-data`)
+- Observability backend is external (run OTEL collector / APM on a separate machine).
+
+Set `OTEL_EXPORTER_OTLP_ENDPOINT` to your remote collector URL (example: `http://your-otel-collector-host:4318`).
+
+### Environment variables
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `APP_NAME` | `nest-prisma-template` | OpenTelemetry `service.name` and Pino `service` field. |
+| `SERVICE_VERSION` | `package.json#version` | Optional OpenTelemetry `service.version` override. |
+| `NODE_ENV` | `development` | Sets `deployment.environment.name` and dev log formatting. |
+| `LOG_LEVEL` | `info` | Pino level (`fatal` \| `error` \| `warn` \| `info` \| `debug` \| `trace` \| `silent`). |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://your-otel-collector-host:4318` | Base URL for OTLP HTTP exporter (`/v1/traces` and `/v1/metrics` are appended automatically). |
+| `OTEL_EXPORTER_OTLP_LOGS_PROTOCOL` | `http/protobuf` | Protocol used by `pino-opentelemetry-transport` for log export. |
+| `OTEL_LOGS_ENABLED` | `true` | Enables direct OTEL log export in production (stdout JSON remains enabled). |
+
+### Telemetry flow
+
+- **Traces** — Auto-instrumentation covers HTTP, Express, NestJS, Prisma, Redis, and pg.
+- **Metrics** — `MetricsService` and `MetricsInterceptor` emit request counters/error counters/duration histograms.
+- **Logs** — in production, logs go to both stdout JSON and OTEL via `pino-opentelemetry-transport`; in development, `pino-pretty` is used.
+- **Errors** — `AllExceptionsFilter` records exceptions on the active span and returns normalized API errors.
+
+### Boot-order caveat
+
+`src/main.ts` must keep `@/infrastructure/observability/tracing.bootstrap` as the first import so auto-instrumentation patches load correctly.
+
 ## Support
 
 Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).

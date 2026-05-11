@@ -1,0 +1,89 @@
+# Full local app stack: app + Postgres + Redis.
+#
+#   docker compose up --build -d   # build the app image, start everything
+#   docker compose logs -f app     # tail app logs
+#   docker compose down            # stop, keep data
+#   docker compose down -v         # stop and wipe all volumes
+#
+# Endpoints once everything is healthy:
+#   App ............... http://localhost:3000/api/v1
+#   App (Swagger) ..... http://localhost:3000/api/docs   (NODE_ENV=development only)
+#   Postgres .......... localhost:5432  (postgres / password)
+#   Redis ............. localhost:6379
+
+name: nest-prisma-template
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: nest-prisma-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432" # remove in production deployments
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+    networks: [app-net]
+
+  redis:
+    image: redis:8-alpine
+    container_name: nest-prisma-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379" # remove in production deployments
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 3s
+    networks: [app-net]
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: nest-prisma-template:local
+    container_name: nest-prisma-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/postgres
+      REDIS_URL: redis://redis:6379
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://host.docker.internal:4318}
+      OTEL_EXPORTER_OTLP_LOGS_PROTOCOL: ${OTEL_EXPORTER_OTLP_LOGS_PROTOCOL:-http/protobuf}
+      OTEL_LOGS_ENABLED: ${OTEL_LOGS_ENABLED:-true}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "3000:3000"
+    networks: [app-net]
+
+volumes:
+  postgres-data:
+  redis-data:
+
+networks:
+  app-net:
+    driver: bridge

@@ -1,0 +1,38 @@
+# Build artifacts & local installs — produced fresh inside the image.
+node_modules
+dist
+coverage
+.cache
+*.tsbuildinfo
+
+# Secrets — never bake these into a layer.
+.env
+.env.*
+!.env.example
+
+# VCS & CI metadata.
+.git
+.gitignore
+.gitattributes
+.github
+
+# Editor / tool config.
+.vscode
+.idea
+.DS_Store
+
+# Tests & docs aren't needed to run the app.
+test
+README.md
+docs
+
+# Compose files & docker scaffolding (entrypoint.sh is COPYed explicitly in the Dockerfile).
+docker-compose*.yml
+
+# Logs / debug.
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Prisma generated client — regenerated inside the image.
+prisma/generated

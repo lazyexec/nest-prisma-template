@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
-const envSchema = z.object({
+const envSchema = z
+  .object({
   app: z.object({
     name: z.string().trim().min(1).default('nest-prisma-template'),
     port: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -49,6 +50,19 @@ const envSchema = z.object({
     authToken: z.string().trim().optional(),
     fromNumber: z.string().trim().optional(),
   }),
+  observability: z.object({
+    // service.name comes from app.name (APP_NAME); service.version is derived
+    // at boot from SERVICE_VERSION (optional override) or package.json#version.
+    // Neither is restated here.
+    logLevel: z
+      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .default('info'),
+    otlpEndpoint: z.url().default('http://localhost:4318'),
+    logsEnabled: z.coerce.boolean().default(true),
+    logsProtocol: z
+      .enum(['http/protobuf', 'grpc', 'http/json'])
+      .default('http/protobuf'),
+  }),
   oauth: z.object({
     google: z.object({
       // Comma-separated list of accepted audiences. The first entry is used
@@ -83,7 +97,51 @@ const envSchema = z.object({
         ),
     }),
   }),
-});
+  })
+  .superRefine((cfg, ctx) => {
+    const isProd = cfg.app.nodeEnv === 'production';
+    if (!isProd) return;
+
+    const weakMarkers = ['replace-with', 'changeme', 'example', 'password'];
+    const hasWeakMarker = (value: string) =>
+      weakMarkers.some((marker) => value.toLowerCase().includes(marker));
+
+    if (hasWeakMarker(cfg.auth.jwtAccessSecret)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['auth', 'jwtAccessSecret'],
+        message:
+          'JWT_ACCESS_SECRET looks like a placeholder. Use a strong production secret.',
+      });
+    }
+
+    if (hasWeakMarker(cfg.auth.jwtRefreshSecret)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['auth', 'jwtRefreshSecret'],
+        message:
+          'JWT_REFRESH_SECRET looks like a placeholder. Use a strong production secret.',
+      });
+    }
+
+    if (hasWeakMarker(cfg.auth.encryptionKey)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['auth', 'encryptionKey'],
+        message:
+          'AUTH_ENCRYPTION_KEY looks like a placeholder. Use a real 32-byte base64 value.',
+      });
+    }
+
+    if (/(localhost|127\.0\.0\.1)/i.test(cfg.app.frontendUrl)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['app', 'frontendUrl'],
+        message:
+          'FRONTEND_URL points to localhost in production. Set the real frontend URL.',
+      });
+    }
+  });
 
 export default () =>
   envSchema.parse({
@@ -130,6 +188,12 @@ export default () =>
       accountSid: process.env.TWILIO_ACCOUNT_SID,
       authToken: process.env.TWILIO_AUTH_TOKEN,
       fromNumber: process.env.TWILIO_FROM_NUMBER,
+    },
+    observability: {
+      logLevel: process.env.LOG_LEVEL,
+      otlpEndpoint: process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
+      logsEnabled: process.env.OTEL_LOGS_ENABLED,
+      logsProtocol: process.env.OTEL_EXPORTER_OTLP_LOGS_PROTOCOL,
     },
     oauth: {
       google: { clientIds: process.env.GOOGLE_CLIENT_IDS },

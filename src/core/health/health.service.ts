@@ -1,6 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import { PrismaService } from '@/database/prisma.service';
 import { RedisAdapter } from '@/infrastructure/redis/redis.adapter';
+
+type DependencyStatus = 'up' | 'down';
 
 @Injectable()
 export class HealthService {
@@ -11,25 +16,47 @@ export class HealthService {
 
   async checkReadiness(): Promise<{
     status: 'ok';
-    checks: { database: 'up'; redis: 'up' };
+    checks: { database: DependencyStatus; redis: DependencyStatus };
+    uptimeSeconds: number;
+    timestamp: string;
   }> {
-    const prismaClient = this.prisma as unknown as {
-      $queryRaw: (query: TemplateStringsArray) => Promise<unknown>;
+    const checks: { database: DependencyStatus; redis: DependencyStatus } = {
+      database: 'down',
+      redis: 'down',
     };
-    await prismaClient.$queryRaw`SELECT 1`;
-    const redisClient = await this.redisAdapter.getClient();
-    await redisClient.ping();
+
+    try {
+      const prismaClient = this.prisma as unknown as {
+        $queryRaw: (query: TemplateStringsArray) => Promise<unknown>;
+      };
+      await prismaClient.$queryRaw`SELECT 1`;
+      checks.database = 'up';
+
+      const redisClient = await this.redisAdapter.getClient();
+      await redisClient.ping();
+      checks.redis = 'up';
+    } catch {
+      throw new ServiceUnavailableException({
+        status: 'error',
+        checks,
+        uptimeSeconds: Math.floor(process.uptime()),
+        timestamp: new Date().toISOString(),
+      });
+    }
 
     return {
       status: 'ok',
-      checks: {
-        database: 'up',
-        redis: 'up',
-      },
+      checks,
+      uptimeSeconds: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
     };
   }
 
-  checkLiveness(): { status: 'ok' } {
-    return { status: 'ok' };
+  checkLiveness(): { status: 'ok'; uptimeSeconds: number; timestamp: string } {
+    return {
+      status: 'ok',
+      uptimeSeconds: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+    };
   }
 }

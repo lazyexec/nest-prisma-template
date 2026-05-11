@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import configuration, { Config } from '@/configs/environment.config';
+import { ObservabilityModule } from '@/infrastructure/observability/observability.module';
 import { PrismaModule } from '@/database/prisma.module';
 import { CommonModule } from '@/common/common.module';
 import { RedisModule } from '@/infrastructure/redis/redis.module';
@@ -19,6 +20,7 @@ import { AuthModule } from '@/core/auth/auth.module';
       isGlobal: true,
       load: [configuration],
     }),
+    ObservabilityModule,
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService<Config>) => {
